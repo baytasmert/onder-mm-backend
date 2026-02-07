@@ -402,7 +402,7 @@ export async function createTemplate(req, res) {
       });
     }
 
-    const { name, subject, content, variables } = req.body;
+    const { name, subject, content, category, variables } = req.body;
 
     if (!name || !subject || !content) {
       return res.status(400).json({
@@ -415,6 +415,7 @@ export async function createTemplate(req, res) {
       name,
       subject,
       content,
+      category: category || 'custom',
       variables: variables || [],
       created_by: req.user.id
     });
@@ -518,8 +519,18 @@ export async function getEmailHistory(req, res) {
       status
     });
 
+    // Map campaigns to history format expected by frontend
+    const history = result.campaigns.map(c => ({
+      id: c.id || c.campaign_id,
+      subject: c.subject,
+      recipients_count: (c.sent_count || 0) + (c.failed_count || 0),
+      sent_at: c.sent_at || c.created_at,
+      status: c.status === 'partial' ? 'sent' : c.status
+    }));
+
     res.json({
       success: true,
+      history: history,
       campaigns: result.campaigns,
       total: result.total,
       limit: result.limit,

@@ -168,10 +168,12 @@ export async function createTemplate(templateData) {
       name: templateData.name,
       subject: templateData.subject,
       content: templateData.content,
+      category: templateData.category || 'custom',
       variables: templateData.variables || [],
       created_by: templateData.created_by,
-      created_at: new Date(),
-      updated_at: new Date()
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      last_used: null
     };
 
     const key = `email_template:${template.id}`;

@@ -61,6 +61,7 @@ import settingsRoutes from './src/routes/settings.routes.js';
 import performanceRoutes from './src/routes/performance.routes.js';
 import uploadRoutes from './src/routes/upload.routes.js';
 import mailRoutes from './src/routes/mail.routes.js';
+import integrationsRoutes from './src/routes/integrations.routes.js';
 import performanceMonitor from './src/services/performanceMonitor.js';
 
 const app = express();
@@ -365,6 +366,7 @@ app.use('/api/v1/mail', mailRoutes); // Newsletter campaigns (protected)
 app.use('/api/v1/subscribers', subscribersRoutes); // Subscriber management (protected + public subscribe/unsubscribe)
 app.use('/api/v1/logs', activityLogsRoutes); // Activity logs (protected)
 app.use('/api/v1/settings', settingsRoutes); // Settings & analytics (protected)
+app.use('/api/v1/integrations', integrationsRoutes); // Social media integrations (protected)
 app.use('/api/v1', systemRoutes); // health, monitoring, cache, backup
 
 // ============================================

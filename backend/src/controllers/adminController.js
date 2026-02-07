@@ -412,15 +412,26 @@ export async function getDashboardStats(req, res) {
 }
 
 /**
- * Get system settings
+ * Get system settings - returns full nested structure
+ * Response: { settings: { site, seo, security, backup, notifications } }
  */
 export async function getSettings(req, res) {
   try {
-    const settings = await db.get('settings:main') || getDefaultSettings();
+    const siteSettings = await db.get('settings:section:site') || getDefaultSiteSettings();
+    const seoSettings = await db.get('settings:section:seo') || getDefaultSeoSettings();
+    const securitySettings = await db.get('settings:section:security') || getDefaultSecuritySettings();
+    const backupSettings = await db.get('settings:section:backup') || getDefaultBackupSettings();
+    const notificationSettings = await db.get('settings:section:notifications') || getDefaultNotificationSettings();
 
     res.json({
       success: true,
-      data: settings,
+      settings: {
+        site: siteSettings,
+        seo: seoSettings,
+        security: securitySettings,
+        backup: backupSettings,
+        notifications: notificationSettings,
+      },
     });
   } catch (error) {
     logger.error('Error fetching settings:', error);
@@ -429,13 +440,13 @@ export async function getSettings(req, res) {
 }
 
 /**
- * Update system settings
+ * Update system settings (legacy - flat update)
  */
 export async function updateSettings(req, res) {
   try {
     const { companyName, companyEmail, phone, address, timezone, language } = req.body;
 
-    const settings = await db.get('settings:main') || getDefaultSettings();
+    const settings = await db.get('settings:main') || {};
 
     const updated = {
       ...settings,
@@ -461,6 +472,86 @@ export async function updateSettings(req, res) {
   } catch (error) {
     logger.error('Error updating settings:', error);
     res.status(500).json({ error: 'Failed to update settings' });
+  }
+}
+
+/**
+ * Update site settings section
+ */
+export async function updateSiteSettings(req, res) {
+  try {
+    const current = await db.get('settings:section:site') || getDefaultSiteSettings();
+    const updated = { ...current, ...req.body, updated_at: new Date().toISOString() };
+    await db.set('settings:section:site', updated);
+    logger.info('Site settings updated by ' + req.user.email);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error updating site settings:', error);
+    res.status(500).json({ error: 'Failed to update site settings' });
+  }
+}
+
+/**
+ * Update SEO settings section
+ */
+export async function updateSeoSettings(req, res) {
+  try {
+    const current = await db.get('settings:section:seo') || getDefaultSeoSettings();
+    const updated = { ...current, ...req.body, updated_at: new Date().toISOString() };
+    await db.set('settings:section:seo', updated);
+    logger.info('SEO settings updated by ' + req.user.email);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error updating SEO settings:', error);
+    res.status(500).json({ error: 'Failed to update SEO settings' });
+  }
+}
+
+/**
+ * Update security settings section
+ */
+export async function updateSecuritySettings(req, res) {
+  try {
+    const current = await db.get('settings:section:security') || getDefaultSecuritySettings();
+    const updated = { ...current, ...req.body, updated_at: new Date().toISOString() };
+    await db.set('settings:section:security', updated);
+    logger.info('Security settings updated by ' + req.user.email);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error updating security settings:', error);
+    res.status(500).json({ error: 'Failed to update security settings' });
+  }
+}
+
+/**
+ * Update backup settings section
+ */
+export async function updateBackupSettings(req, res) {
+  try {
+    const current = await db.get('settings:section:backup') || getDefaultBackupSettings();
+    const updated = { ...current, ...req.body, updated_at: new Date().toISOString() };
+    await db.set('settings:section:backup', updated);
+    logger.info('Backup settings updated by ' + req.user.email);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error updating backup settings:', error);
+    res.status(500).json({ error: 'Failed to update backup settings' });
+  }
+}
+
+/**
+ * Update notification settings section
+ */
+export async function updateNotificationSettings(req, res) {
+  try {
+    const current = await db.get('settings:section:notifications') || getDefaultNotificationSettings();
+    const updated = { ...current, ...req.body, updated_at: new Date().toISOString() };
+    await db.set('settings:section:notifications', updated);
+    logger.info('Notification settings updated by ' + req.user.email);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error updating notification settings:', error);
+    res.status(500).json({ error: 'Failed to update notification settings' });
   }
 }
 
@@ -542,11 +633,15 @@ export async function createBackup(req, res) {
     const { scheduleBackups, createBackup: doCreateBackup } = await import('../../src/utils/backup.js');
 
     const backupPath = await doCreateBackup();
+    const filename = typeof backupPath === 'string'
+      ? backupPath.split(/[/\\]/).pop()
+      : `backup-${Math.floor(Date.now() / 1000)}.zip`;
 
     logger.info(`Manual backup created by ${req.user.email}`);
 
     res.json({
       success: true,
+      filename: filename,
       data: {
         path: backupPath,
         timestamp: new Date().toISOString(),
@@ -580,19 +675,70 @@ export async function getBackupHistory(req, res) {
 }
 
 /**
- * Helper: Get default settings
+ * Helper: Default settings by section
  */
-function getDefaultSettings() {
+function getDefaultSiteSettings() {
   return {
-    companyName: 'Önder Denetim',
-    companyEmail: 'info@onderdenetim.com',
-    phone: '+90 (0)312 XXX XX XX',
-    address: 'Ankara, Turkey',
-    website: 'https://onderdenetim.com',
-    timezone: 'Europe/Istanbul',
-    language: 'tr',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    siteName: 'Önder Denetim',
+    siteDescription: 'Bağımsız Denetim ve Mali Müşavirlik',
+    siteUrl: 'https://onderdenetim.com',
+    contactEmail: 'info@onderdenetim.com',
+    contactPhone: '+90 212 XXX XX XX',
+    address: 'İstanbul, Türkiye',
+    googleAnalyticsId: '',
+    enableAnalytics: true,
+    enableCookieConsent: true,
+    maintenanceMode: false,
+  };
+}
+
+function getDefaultSeoSettings() {
+  return {
+    metaTitle: 'Önder Denetim - Bağımsız Denetim',
+    metaDescription: 'TÜRMOB kayıtlı bağımsız denetçi ve mali müşavirlik hizmetleri',
+    metaKeywords: 'denetim, mali müşavirlik, vergi danışmanlık',
+    ogImage: '/og-image.jpg',
+    twitterHandle: '@onderdenetim',
+    enableSitemap: true,
+    enableRobots: true,
+    canonicalUrl: 'https://onderdenetim.com',
+  };
+}
+
+function getDefaultSecuritySettings() {
+  return {
+    enableTwoFactor: false,
+    sessionTimeout: 30,
+    maxLoginAttempts: 5,
+    enableIpWhitelist: false,
+    enableActivityLog: true,
+    passwordMinLength: 8,
+    requireSpecialChars: true,
+    enableRateLimiting: true,
+  };
+}
+
+function getDefaultBackupSettings() {
+  return {
+    enableAutoBackup: true,
+    backupFrequency: 'daily',
+    backupRetention: 30,
+    backupLocation: 'local',
+    enableCloudBackup: false,
+    lastBackup: null,
+  };
+}
+
+function getDefaultNotificationSettings() {
+  return {
+    enableEmailNotifications: true,
+    notifyOnNewComment: true,
+    notifyOnNewSubscriber: true,
+    notifyOnNewContact: true,
+    notifyOnSystemError: true,
+    notificationEmail: 'info@onderdenetim.com',
+    enableSlackNotifications: false,
+    slackWebhook: '',
   };
 }
 
@@ -607,6 +753,11 @@ export default {
   getDashboardStats,
   getSettings,
   updateSettings,
+  updateSiteSettings,
+  updateSeoSettings,
+  updateSecuritySettings,
+  updateBackupSettings,
+  updateNotificationSettings,
   getLogs,
   clearLogs,
   createBackup,

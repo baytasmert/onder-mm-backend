@@ -48,11 +48,18 @@ router.get('/dashboard/stats', adminController.getDashboardStats);
  * Admin Panel - System Settings
  */
 
-// Get system settings
+// Get all system settings (full nested structure)
 router.get('/settings', adminController.getSettings);
 
-// Update system settings
+// Update system settings (legacy flat update)
 router.put('/settings', adminController.updateSettings);
+
+// Sectional settings updates
+router.put('/settings/site', adminController.updateSiteSettings);
+router.put('/settings/seo', adminController.updateSeoSettings);
+router.put('/settings/security', adminController.updateSecuritySettings);
+router.put('/settings/backup', adminController.updateBackupSettings);
+router.put('/settings/notifications', adminController.updateNotificationSettings);
 
 /**
  * Admin Panel - Logs & Monitoring
@@ -68,8 +75,11 @@ router.delete('/logs/clear', adminController.clearLogs);
  * Admin Panel - Backups
  */
 
-// Create manual backup
+// Create manual backup (plural path - legacy)
 router.post('/backups/create', adminController.createBackup);
+
+// Create manual backup (singular path - frontend expected)
+router.post('/backup/create', adminController.createBackup);
 
 // Get backup history
 router.get('/backups/history', adminController.getBackupHistory);
