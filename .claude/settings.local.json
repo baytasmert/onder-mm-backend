@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm start)",
+      "Bash(curl:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill /PID 60100 /F)",
+      "Bash(taskkill:*)",
+      "Bash(dir /B \"C:\\Users\\Asus\\Downloads\\Mali Müşavirlik Web Sitesi (1)\")",
+      "Bash(move src frontend )",
+      "Bash(move:*)",
+      "Bash(move vite.config.ts frontend )",
+      "Bash(move package.json frontend )",
+      "Bash(move package-lock.json frontend 2)",
+      "Bash(nul)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(rm:*)",
+      "Bash(\"C:\\Users\\Asus\\Downloads\\Mali Müşavirlik Web Sitesi (1)\\backend\\.env.example\")",
+      "Bash(dir:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2MzgwZWQwZi1lMmQxLTRjNDktYWRmZC0xZjFjZWUxNzlmNjEiLCJlbWFpbCI6Im1lcnRiYXl0YXNAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzY4MzE4NjgwLCJleHAiOjE3Njg5MjM0ODB9.ezxtGw9Lu78zw-dnayNfFkVt4vJwaCyJFkFKmCJWYUg\")",
+      "Bash(python3:*)",
+      "Bash(pkill:*)",
+      "Bash(tasklist:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(powershell:*)",
+      "Bash(python:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
