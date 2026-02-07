@@ -346,6 +346,10 @@ async function logActivity(userId, action, entity, entityId, details = {}) {
 // API v1 ROUTES (Recommended)
 // ============================================
 
+// Import new routes
+import subscribersRoutes from './src/routes/subscribers.routes.js';
+import activityLogsRoutes from './src/routes/activityLogs.routes.js';
+
 // Mount all API routes under /api/v1
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes); // Admin management (protected)
@@ -356,10 +360,12 @@ app.use('/api/v1/calculators', calculatorsRoutes);
 app.use('/api/v1/contact', contactRoutes);
 app.use('/api/v1/email', emailRoutes); // Email campaigns (protected)
 app.use('/api/v1/social', socialRoutes);
-app.use('/api/v1/upload', uploadRoutes); // File upload (protected) - HIGH PRIORITY
-app.use('/api/v1/mail', mailRoutes); // Newsletter campaigns (protected) - HIGH PRIORITY
-app.use('/api/v1/settings', settingsRoutes); // Settings & analytics (protected) - includes /api endpoints
-app.use('/api/v1', systemRoutes); // health, monitoring, cache, backup, logs
+app.use('/api/v1/upload', uploadRoutes); // File upload (protected)
+app.use('/api/v1/mail', mailRoutes); // Newsletter campaigns (protected)
+app.use('/api/v1/subscribers', subscribersRoutes); // Subscriber management (protected + public subscribe/unsubscribe)
+app.use('/api/v1/logs', activityLogsRoutes); // Activity logs (protected)
+app.use('/api/v1/settings', settingsRoutes); // Settings & analytics (protected)
+app.use('/api/v1', systemRoutes); // health, monitoring, cache, backup
 
 // ============================================
 // UTILITY ENDPOINTS (Outside API versioning)

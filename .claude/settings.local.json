@@ -26,7 +26,8 @@
       "Bash(tasklist:*)",
       "Bash(npm uninstall:*)",
       "Bash(powershell:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

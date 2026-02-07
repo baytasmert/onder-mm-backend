@@ -1,6 +1,6 @@
 /**
- * Regulations Routes
- * Public GET endpoints, protected POST/PUT/DELETE
+ * Regulations Routes (Mevzuat)
+ * Sector-based regulations management with blog-like features
  */
 
 import express from 'express';
@@ -10,10 +10,12 @@ const router = express.Router();
 
 // Public routes (GET only)
 router.get('/', regulationsController.getAllRegulations);
+router.get('/sectors', regulationsController.getSectors);
+router.get('/stats', regulationsController.getRegulationStats);
 router.get('/category', regulationsController.getRegulationsByCategory);
-router.get('/:id', regulationsController.getRegulationById);
+router.get('/:slug', regulationsController.getRegulationBySlug);
 
-// Protected routes (admin only)
+// Protected routes (Admin, Editor)
 router.post('/', regulationsController.createRegulation);
 router.put('/:id', regulationsController.updateRegulation);
 router.delete('/:id', regulationsController.deleteRegulation);
