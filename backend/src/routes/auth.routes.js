@@ -118,7 +118,7 @@ router.post('/session', asyncHandler(async (req, res) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const admin = await db.get(`admin:${decoded.userId}`);
+    const admin = await db.get(`admins:${decoded.userId}`);
 
     if (!admin) {
       return res.status(401).json({ error: 'User not found' });
