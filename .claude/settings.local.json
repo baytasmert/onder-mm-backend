@@ -27,7 +27,11 @@
       "Bash(npm uninstall:*)",
       "Bash(powershell:*)",
       "Bash(python:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxZThlYmZiMC0xYmZhLTRjMzAtYTMyNC0yYWM2MjI4NmQwODUiLCJlbWFpbCI6Im1lcnRiYXl0YXNAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzcwNDcxMTc4LCJleHAiOjE3NzEwNzU5Nzh9.nDijVZKxapTrYvUBGHR49xB0MSCPc0WaHiMmNYNE0NA\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxZThlYmZiMC0xYmZhLTRjMzAtYTMyNC0yYWM2MjI4NmQwODUiLCJlbWFpbCI6Im1lcnRiYXl0YXNAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzcwNDcxNzY0LCJleHAiOjE3NzEwNzY1NjR9.kI_r71SQ71I1hIkDmVBdGLZgLaAXyBKkguOQOdKV7-o\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxZThlYmZiMC0xYmZhLTRjMzAtYTMyNC0yYWM2MjI4NmQwODUiLCJlbWFpbCI6Im1lcnRiYXl0YXNAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzcwNDcxOTY3LCJleHAiOjE3NzEwNzY3Njd9.RbFtFlq4hE5nYt7wkinlvXitEu-2VvkRcNgLBALtl00\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiN2Q5Njk3MS00NmIxLTQ1NTQtYmM5Zi03Y2JhYTBiZGIwNWMiLCJlbWFpbCI6Im1lcnRiYXl0YXNAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzcwNDcyMTE5LCJleHAiOjE3NzEwNzY5MTl9.nZ-n1krKRNfJ6yBh31RUyCGoARZLTqd5gqomo3q47PI\")"
     ],
     "deny": [],
     "ask": []

@@ -393,8 +393,11 @@ export async function getDashboardStats(req, res) {
         return acc;
       }, {}),
 
-      // Recent items
-      recentBlogs: blogs.slice(-5).reverse(),
+      // Recent items (remove previous_versions to avoid circular reference)
+      recentBlogs: blogs.slice(-5).reverse().map(blog => {
+        const { previous_versions, ...blogWithoutHistory } = blog;
+        return blogWithoutHistory;
+      }),
       recentContacts: contacts.slice(-5).reverse(),
     };
 

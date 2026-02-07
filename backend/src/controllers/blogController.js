@@ -382,11 +382,12 @@ export const updateBlogPost = async (req, res) => {
       updates.excerpt = extractExcerpt(updates.content);
     }
 
-    // Save previous version
+    // Save previous version (exclude previous_versions to avoid circular reference)
     const previousVersions = existingPost.previous_versions || [];
+    const { previous_versions: _, ...postDataForHistory } = existingPost;
     previousVersions.push({
       version: existingPost.version,
-      data: { ...existingPost },
+      data: postDataForHistory,
       updated_by: req.user.id,
       updated_at: new Date().toISOString()
     });
