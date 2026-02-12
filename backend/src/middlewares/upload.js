@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import config from '../config/index.js';
+import { logger } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,7 +21,7 @@ const ensureUploadDir = async () => {
     await fs.mkdir(path.join(config.upload.uploadDir, 'documents'), { recursive: true });
     await fs.mkdir(path.join(config.upload.uploadDir, 'temp'), { recursive: true });
   } catch (error) {
-    console.error('Error creating upload directories:', error);
+    logger.error('Error creating upload directories:', error);
   }
 };
 

@@ -32,7 +32,14 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxZThlYmZiMC0xYmZhLTRjMzAtYTMyNC0yYWM2MjI4NmQwODUiLCJlbWFpbCI6Im1lcnRiYXl0YXNAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzcwNDcxNzY0LCJleHAiOjE3NzEwNzY1NjR9.kI_r71SQ71I1hIkDmVBdGLZgLaAXyBKkguOQOdKV7-o\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxZThlYmZiMC0xYmZhLTRjMzAtYTMyNC0yYWM2MjI4NmQwODUiLCJlbWFpbCI6Im1lcnRiYXl0YXNAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzcwNDcxOTY3LCJleHAiOjE3NzEwNzY3Njd9.RbFtFlq4hE5nYt7wkinlvXitEu-2VvkRcNgLBALtl00\")",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiN2Q5Njk3MS00NmIxLTQ1NTQtYmM5Zi03Y2JhYTBiZGIwNWMiLCJlbWFpbCI6Im1lcnRiYXl0YXNAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzcwNDcyMTE5LCJleHAiOjE3NzEwNzY5MTl9.nZ-n1krKRNfJ6yBh31RUyCGoARZLTqd5gqomo3q47PI\")",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJmMjI3YjViMi1kNWVmLTQwMzMtYjdlNS0wNzNhODVlZTg3N2YiLCJlbWFpbCI6Im1lcnRiYXl0YXNAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzcwOTI4NzAyLCJleHAiOjE3NzA5Mjk2MDJ9.beGRvg4E393L8B2rmTfpYPME-fIrUXKSLTOq97wYILw\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI1MzVlZGVmZC0zOTQ2LTRjNGEtOGUzZC04MTkzZDc4NTQ2YzUiLCJlbWFpbCI6Im1lcnRiYXl0YXNAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzcwOTMxNDQ0LCJleHAiOjE3NzA5MzIzNDR9.Cm6c2yrqNFGf82i_-qz30Ct0eSqO9kB46EbWPaRgdUg\":*)",
+      "Bash(__NEW_LINE_d889dba5dea08773__ echo \"=== 1. GET /analytics/dashboard ===\")",
+      "Bash(__NEW_LINE_9f86ff66edce416c__ echo \"\")",
+      "Bash(__NEW_LINE_1a7c31ebaeba6242__ echo \"\")",
+      "Bash(__NEW_LINE_906025fc3d5b0989__ echo \"\")",
+      "Bash(git config:*)"
     ],
     "deny": [],
     "ask": []

@@ -50,12 +50,15 @@ export function optionalCsrfProtection(req, res, next) {
 
   // Skip CSRF for certain endpoints (e.g., webhooks, public APIs)
   const exemptPaths = [
-    '/auth/signin',
-    '/auth/signup-admin',
-    '/contact',
-    '/subscribe',
+    '/api/v1/auth/signin',
+    '/api/v1/auth/signup-admin',
+    '/api/v1/auth/session',
+    '/api/v1/contact',
+    '/api/v1/subscribe',
+    '/api/v1/subscribers/subscribe',
+    '/api/v1/subscribers/unsubscribe',
     '/webhooks/',
-    '/calculators/',
+    '/api/v1/calculators/',
   ];
 
   const isExempt = exemptPaths.some(path => req.path.startsWith(path));

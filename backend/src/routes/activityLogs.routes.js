@@ -1,34 +1,26 @@
 /**
  * Activity Logs Routes
  * System-wide activity tracking and monitoring
+ * IMPORTANT: Specific routes MUST come before /:id param routes
  */
 
 import express from 'express';
 import * as activityLogsController from '../controllers/activityLogsController.js';
+import { asyncHandler } from '../../middlewares.js';
 
 const router = express.Router();
 
-// All routes protected (Admin only - auth middleware in server.js)
+// Specific paths first (before /:id)
+router.get('/stats', asyncHandler(activityLogsController.getLogStats));
+router.get('/export', asyncHandler(activityLogsController.exportLogs));
+router.get('/user/:userId', asyncHandler(activityLogsController.getUserActivity));
+router.get('/entity/:entity/:entityId', asyncHandler(activityLogsController.getEntityActivity));
+router.delete('/clear', asyncHandler(activityLogsController.clearOldLogs));
 
-// Get all logs with filtering
-router.get('/', activityLogsController.getAllLogs);
-
-// Get log statistics
-router.get('/stats', activityLogsController.getLogStats);
-
-// Export logs
-router.get('/export', activityLogsController.exportLogs);
-
-// Get specific log
-router.get('/:id', activityLogsController.getLogById);
-
-// Get user activity
-router.get('/user/:userId', activityLogsController.getUserActivity);
-
-// Get entity activity
-router.get('/entity/:entity/:entityId', activityLogsController.getEntityActivity);
-
-// Clear old logs (Super Admin only)
-router.delete('/clear', activityLogsController.clearOldLogs);
+// General routes
+router.get('/', asyncHandler(activityLogsController.getAllLogs));
+router.get('/:id', asyncHandler(activityLogsController.getLogById));
+router.patch('/:id/read', asyncHandler(activityLogsController.markLogAsRead));
+router.delete('/:id', asyncHandler(activityLogsController.deleteLog));
 
 export default router;

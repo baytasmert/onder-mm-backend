@@ -6,6 +6,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { logger } from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,7 +21,7 @@ async function ensureBackupDir() {
   try {
     await fs.mkdir(BACKUP_DIR, { recursive: true });
   } catch (error) {
-    console.error('Error creating backup directory:', error);
+    logger.error('Error creating backup directory:', error);
   }
 }
 
@@ -42,7 +43,7 @@ export const createBackup = async () => {
     // Write backup
     await fs.writeFile(backupPath, dbContent);
 
-    console.log(`✅ Backup created: ${backupFileName}`);
+    logger.info(`Backup created: ${backupFileName}`);
 
     // Clean old backups (keep last 30)
     await cleanOldBackups(30);
@@ -55,7 +56,7 @@ export const createBackup = async () => {
     };
 
   } catch (error) {
-    console.error('❌ Backup failed:', error);
+    logger.error('Backup failed:', error);
     return {
       success: false,
       error: error.message
@@ -87,12 +88,12 @@ async function cleanOldBackups(keepCount = 30) {
 
       for (const file of filesToDelete) {
         await fs.unlink(file.path);
-        console.log(`🗑️  Deleted old backup: ${file.name}`);
+        logger.info(`Deleted old backup: ${file.name}`);
       }
     }
 
   } catch (error) {
-    console.error('Error cleaning old backups:', error);
+    logger.error('Error cleaning old backups:', error);
   }
 }
 
@@ -118,7 +119,7 @@ export const restoreBackup = async (backupFileName) => {
     // Restore database
     await fs.writeFile(DB_FILE, backupContent);
 
-    console.log(`✅ Database restored from: ${backupFileName}`);
+    logger.info(`Database restored from: ${backupFileName}`);
 
     return {
       success: true,
@@ -127,7 +128,7 @@ export const restoreBackup = async (backupFileName) => {
     };
 
   } catch (error) {
-    console.error('❌ Restore failed:', error);
+    logger.error('Restore failed:', error);
     return {
       success: false,
       error: error.message
@@ -166,7 +167,7 @@ export const listBackups = async () => {
     return backups;
 
   } catch (error) {
-    console.error('Error listing backups:', error);
+    logger.error('Error listing backups:', error);
     return [];
   }
 };
@@ -201,7 +202,7 @@ export const scheduleBackups = () => {
     createBackup();
   }, 6 * 60 * 60 * 1000); // 6 hours
 
-  console.log('📅 Automatic backups scheduled (every 6 hours + daily at 3 AM)');
+  logger.info('Automatic backups scheduled (every 6 hours + daily at 3 AM)');
 };
 
 /**
@@ -231,7 +232,7 @@ export const getBackupStats = async () => {
     };
 
   } catch (error) {
-    console.error('Error getting backup stats:', error);
+    logger.error('Error getting backup stats:', error);
     return null;
   }
 };

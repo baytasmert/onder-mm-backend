@@ -6,47 +6,43 @@
 import express from 'express';
 import performanceMonitor from '../services/performanceMonitor.js';
 import cacheService from '../services/cacheService.js';
-import { logger } from '../utils/logger.js';
+import { asyncHandler } from '../../middlewares.js';
+import { ForbiddenError } from '../utils/errors.js';
 
 const router = express.Router();
 
-/**
- * GET /performance/metrics
- * Get performance metrics (admin only)
- */
-router.get('/metrics', async (req, res) => {
-  try {
-    // Check permission
-    if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
-      return res.status(403).json({ error: 'Forbidden - Admin access required' });
-    }
-
-    const metrics = performanceMonitor.getMetrics();
-
-    res.json({
-      success: true,
-      data: metrics,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error('Error fetching metrics:', error);
-    res.status(500).json({ error: 'Failed to fetch metrics' });
+function requireAdmin(req) {
+  if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
+    throw new ForbiddenError('Admin access required');
   }
-});
+}
+
+function requireSuperAdmin(req) {
+  if (req.user?.role !== 'super_admin') {
+    throw new ForbiddenError('Super admin access required');
+  }
+}
 
 /**
- * GET /performance/health
- * Health check endpoint (public)
+ * GET /performance/metrics (admin only)
+ */
+router.get('/metrics', asyncHandler(async (req, res) => {
+  requireAdmin(req);
+  const metrics = performanceMonitor.getMetrics();
+  res.json({ success: true, data: metrics, timestamp: new Date().toISOString() });
+}));
+
+/**
+ * GET /performance/health (public)
  */
 router.get('/health', (req, res) => {
   const metrics = performanceMonitor.getMetrics();
   const memUsage = parseFloat(metrics.memoryStats.usagePercent);
-
   const status = memUsage > 90 ? 'degraded' : memUsage > 80 ? 'warning' : 'healthy';
 
   res.json({
     success: true,
-    status: status,
+    status,
     timestamp: new Date().toISOString(),
     uptime: metrics.uptime,
     memory: metrics.memoryStats,
@@ -55,78 +51,42 @@ router.get('/health', (req, res) => {
 });
 
 /**
- * POST /performance/gc
- * Trigger garbage collection (super_admin only)
+ * POST /performance/gc (super_admin only)
  */
-router.post('/gc', async (req, res) => {
-  try {
-    if (req.user?.role !== 'super_admin') {
-      return res.status(403).json({ error: 'Forbidden - Super admin only' });
-    }
+router.post('/gc', asyncHandler(async (req, res) => {
+  requireSuperAdmin(req);
 
-    const before = performanceMonitor.getMemoryStats();
-    await performanceMonitor.triggerGarbageCollection();
-    const after = performanceMonitor.getMemoryStats();
+  const before = performanceMonitor.getMemoryStats();
+  await performanceMonitor.triggerGarbageCollection();
+  const after = performanceMonitor.getMemoryStats();
 
-    res.json({
-      success: true,
-      message: 'Garbage collection triggered',
-      memory: {
-        before: before,
-        after: after,
-        freed: (before.heapUsed - after.heapUsed) + ' MB',
-      },
-    });
-  } catch (error) {
-    logger.error('Error triggering GC:', error);
-    res.status(500).json({ error: 'Failed to trigger GC' });
-  }
-});
+  res.json({
+    success: true,
+    message: 'Garbage collection triggered',
+    memory: {
+      before,
+      after,
+      freed: (before.heapUsed - after.heapUsed) + ' MB',
+    },
+  });
+}));
 
 /**
- * GET /performance/cache-stats
- * Cache statistics (admin only)
+ * GET /performance/cache-stats (admin only)
  */
-router.get('/cache-stats', async (req, res) => {
-  try {
-    if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
-      return res.status(403).json({ error: 'Forbidden - Admin access required' });
-    }
-
-    const stats = await cacheService.getStats();
-
-    res.json({
-      success: true,
-      data: stats,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error('Error fetching cache stats:', error);
-    res.status(500).json({ error: 'Failed to fetch cache stats' });
-  }
-});
+router.get('/cache-stats', asyncHandler(async (req, res) => {
+  requireAdmin(req);
+  const stats = await cacheService.getStats();
+  res.json({ success: true, data: stats, timestamp: new Date().toISOString() });
+}));
 
 /**
- * POST /performance/cache-clear
- * Clear cache (super_admin only)
+ * POST /performance/cache-clear (super_admin only)
  */
-router.post('/cache-clear', async (req, res) => {
-  try {
-    if (req.user?.role !== 'super_admin') {
-      return res.status(403).json({ error: 'Forbidden - Super admin only' });
-    }
-
-    await cacheService.clear();
-
-    res.json({
-      success: true,
-      message: 'Cache cleared successfully',
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error('Error clearing cache:', error);
-    res.status(500).json({ error: 'Failed to clear cache' });
-  }
-});
+router.post('/cache-clear', asyncHandler(async (req, res) => {
+  requireSuperAdmin(req);
+  await cacheService.clear();
+  res.json({ success: true, message: 'Cache cleared successfully', timestamp: new Date().toISOString() });
+}));
 
 export default router;

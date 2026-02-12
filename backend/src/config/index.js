@@ -48,18 +48,18 @@ const config = {
     authMax: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '5', 10),
   },
 
-  // Default Admin
+  // Default Admin (MUST be set via environment variables in production)
   defaultAdmin: {
-    email: process.env.DEFAULT_ADMIN_EMAIL || 'mertbaytas@gmail.com',
-    password: process.env.DEFAULT_ADMIN_PASSWORD || 'eR4SmOusSe41.G1D3K',
-    name: process.env.DEFAULT_ADMIN_NAME || 'Site Yöneticisi',
+    email: process.env.DEFAULT_ADMIN_EMAIL || 'admin@onderdenetim.com',
+    password: process.env.DEFAULT_ADMIN_PASSWORD || 'ChangeThisPassword!2026',
+    name: process.env.DEFAULT_ADMIN_NAME || 'Site YÃ¶neticisi',
   },
 
   // Email
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
     from: {
-      name: process.env.MAIL_FROM_NAME || 'Önder Denetim',
+      name: process.env.MAIL_FROM_NAME || 'ï¿½nder Denetim',
       email: process.env.MAIL_FROM_EMAIL || 'noreply@onderdenetim.com',
     },
   },
@@ -122,7 +122,7 @@ const validateConfig = () => {
   }
 
   if (errors.length > 0) {
-    console.error('   Configuration Errors:');
+    console.error('ï¿½  Configuration Errors:');
     errors.forEach(error => console.error(`   - ${error}`));
     if (config.isProduction) {
       process.exit(1);

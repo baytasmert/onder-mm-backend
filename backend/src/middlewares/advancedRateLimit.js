@@ -116,6 +116,9 @@ const limiters = {
 // Persistent strict limiter for high memory situations (created once)
 const strictMemoryLimiter = new SlidingWindowLimiter(50, 60000); // 50 req/min
 
+// Shared API key limiters (one per tier, reused across requests)
+const apiKeyLimiters = new Map();
+
 // Cleanup old entries every 2 minutes (more aggressive)
 setInterval(() => {
   for (const limiter of Object.values(limiters)) {
@@ -244,8 +247,11 @@ export async function apiKeyRateLimit(req, res, next) {
     : apiKey.startsWith('pre_') ? 'premium'
     : 'free';
 
-  const config = RATE_LIMITS.apiKey[tier];
-  const limiter = new SlidingWindowLimiter(config.requests, config.window);
+  const tierConfig = RATE_LIMITS.apiKey[tier];
+  if (!apiKeyLimiters.has(tier)) {
+    apiKeyLimiters.set(tier, new SlidingWindowLimiter(tierConfig.requests, tierConfig.window));
+  }
+  const limiter = apiKeyLimiters.get(tier);
 
   const result = limiter.check(apiKey);
 

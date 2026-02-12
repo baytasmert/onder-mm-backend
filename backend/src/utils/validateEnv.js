@@ -16,6 +16,7 @@ const REQUIRED_ENV_VARS = {
     'NODE_ENV',
     'PORT',
     'JWT_SECRET',
+    'DATABASE_URL',
     'ALLOWED_ORIGINS',
     'RESEND_API_KEY',
     'ADMIN_EMAIL',

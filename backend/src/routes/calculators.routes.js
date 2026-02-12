@@ -33,7 +33,21 @@ router.post('/sgk', (req, res) => {
   res.json(result);
 });
 
+// Alias: /sgk-premium -> /sgk
+router.post('/sgk-premium', (req, res) => {
+  const { grossSalary } = req.body;
+  const result = accounting.calculateSGK(grossSalary);
+  res.json(result);
+});
+
 router.post('/vat', (req, res) => {
+  const { amount, rate, includesVAT } = req.body;
+  const result = accounting.calculateVAT(amount, rate, includesVAT);
+  res.json(result);
+});
+
+// Alias: /kdv -> /vat
+router.post('/kdv', (req, res) => {
   const { amount, rate, includesVAT } = req.body;
   const result = accounting.calculateVAT(amount, rate, includesVAT);
   res.json(result);

@@ -1,569 +1,450 @@
 /**
  * Email Management Controller
- * Handles all email campaign, template, and recipient operations
- * Version: 1.0.0
+ * Handles email campaigns, templates, notifications
  */
 
-import { v4 as uuidv4 } from 'uuid';
 import * as db from '../../db.js';
 import * as emailModel from '../models/emailModel.js';
 import * as mailService from '../services/mailService.js';
 import { logger } from '../utils/logger.js';
+import { sendSuccess, sendCreated } from '../utils/response.js';
+import { ForbiddenError, ValidationError } from '../utils/errors.js';
+
+/** Require admin or super_admin role */
+function requireAdmin(req) {
+  if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
+    throw new ForbiddenError('Admin access required');
+  }
+}
 
 /**
- * ENDPOINT 1: POST /api/v1/email/send-bulk
- * Send email to all subscribers
+ * POST /email/send-bulk - Send email to all subscribers
  */
 export async function sendBulkEmail(req, res) {
-  try {
-    // Check admin permission
-    if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Unauthorized - Admin access required'
-      });
-    }
+  requireAdmin(req);
 
-    const { subject, content, template_id } = req.body;
+  const { subject, content, template_id } = req.body;
+  const subscribers = await db.getByPrefix('subscribers:');
 
-    // Validate
-    if (!subject || !content) {
-      return res.status(400).json({
-        success: false,
-        error: 'Subject and content are required'
-      });
-    }
+  if (subscribers.length === 0) {
+    throw new ValidationError('No subscribers found');
+  }
 
-    // Get all subscribers
-    const subscribers = await db.getByPrefix('subscriber:');
+  const campaign = await emailModel.createCampaign({
+    subject, content, template_id,
+    created_by: req.user.id,
+    status: 'sending',
+  });
 
-    if (subscribers.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No subscribers found'
-      });
-    }
+  let sentCount = 0;
+  let failedCount = 0;
+  const failedEmails = [];
 
-    // Create campaign
-    const campaign = await emailModel.createCampaign({
-      subject,
-      content,
-      template_id,
-      created_by: req.user.id,
-      status: 'sending'
-    });
-
-    // Send emails and track
-    let sentCount = 0;
-    let failedCount = 0;
-    const failedEmails = [];
-
-    for (const subscriber of subscribers) {
-      try {
-        // Process template variables if template is used
-        let finalContent = content;
-        if (template_id) {
-          const template = await emailModel.getTemplateById(template_id);
-          if (template) {
-            finalContent = emailModel.replaceTemplateVariables(template.content, {
-              subscriber_name: subscriber.name || subscriber.email,
-              unsubscribe_link: `https://onderdenetim.com/unsubscribe?id=${subscriber.id}`,
-              company_name: 'Önder Denetim'
-            });
-          }
+  for (const subscriber of subscribers) {
+    try {
+      let finalContent = content;
+      if (template_id) {
+        const template = await emailModel.getTemplateById(template_id);
+        if (template) {
+          finalContent = emailModel.replaceTemplateVariables(template.content, {
+            subscriber_name: subscriber.name || subscriber.email,
+            unsubscribe_link: `https://onderdenetim.com/unsubscribe?id=${subscriber.id}`,
+            company_name: 'Onder Denetim',
+          });
         }
+      }
 
-        // Send email
-        const emailResult = await mailService.sendEmail({
-          to: subscriber.email,
-          subject: subject,
-          html: finalContent,
-          text: content
+      const emailResult = await mailService.sendEmail({
+        to: subscriber.email, subject, html: finalContent, text: content,
+      });
+
+      if (emailResult.success) {
+        sentCount++;
+        await emailModel.createRecipient({
+          campaign_id: campaign.campaign_id,
+          subscriber_id: subscriber.id,
+          email: subscriber.email,
+          status: 'sent',
         });
-
-        if (emailResult.success) {
-          sentCount++;
-
-          // Create recipient record
-          await emailModel.createRecipient({
-            campaign_id: campaign.campaign_id,
-            subscriber_id: subscriber.id,
-            email: subscriber.email,
-            status: 'sent'
-          });
-        } else {
-          failedCount++;
-          failedEmails.push(subscriber.email);
-
-          await emailModel.createRecipient({
-            campaign_id: campaign.campaign_id,
-            subscriber_id: subscriber.id,
-            email: subscriber.email,
-            status: 'failed',
-            error_message: emailResult.error || 'Unknown error'
-          });
-        }
-      } catch (error) {
+      } else {
         failedCount++;
         failedEmails.push(subscriber.email);
-        logger.error(`Error sending email to ${subscriber.email}:`, error);
-
         await emailModel.createRecipient({
           campaign_id: campaign.campaign_id,
           subscriber_id: subscriber.id,
           email: subscriber.email,
           status: 'failed',
-          error_message: error.message
+          error_message: emailResult.error || 'Unknown error',
         });
       }
+    } catch (error) {
+      failedCount++;
+      failedEmails.push(subscriber.email);
+      logger.error(`Error sending email to ${subscriber.email}:`, error);
+      await emailModel.createRecipient({
+        campaign_id: campaign.campaign_id,
+        subscriber_id: subscriber.id,
+        email: subscriber.email,
+        status: 'failed',
+        error_message: error.message,
+      });
     }
-
-    // Update campaign
-    await emailModel.updateCampaign(campaign.id, {
-      sent_count: sentCount,
-      failed_count: failedCount,
-      status: failedCount === 0 ? 'sent' : 'partial',
-      sent_at: new Date()
-    });
-
-    logger.info(`📧 Bulk email sent: ${sentCount} successful, ${failedCount} failed`);
-
-    res.json({
-      success: true,
-      message: 'Bulk email campaign completed',
-      campaign_id: campaign.campaign_id,
-      sent_count: sentCount,
-      failed_count: failedCount,
-      failed_emails: failedCount > 0 ? failedEmails.slice(0, 10) : [],
-      total_failed: failedEmails.length
-    });
-  } catch (error) {
-    logger.error('Error in sendBulkEmail:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to send bulk email',
-      message: error.message
-    });
   }
+
+  await emailModel.updateCampaign(campaign.id, {
+    sent_count: sentCount,
+    failed_count: failedCount,
+    status: failedCount === 0 ? 'sent' : 'partial',
+    sent_at: new Date(),
+  });
+
+  logger.info(`Bulk email sent: ${sentCount} successful, ${failedCount} failed`);
+
+  return sendSuccess(res, {
+    message: 'Bulk email campaign completed',
+    campaign_id: campaign.campaign_id,
+    sent_count: sentCount,
+    failed_count: failedCount,
+    failed_emails: failedCount > 0 ? failedEmails.slice(0, 10) : [],
+    total_failed: failedEmails.length,
+  });
 }
 
 /**
- * ENDPOINT 2: POST /api/v1/email/send-selected
- * Send email to selected subscribers
+ * POST /email/send-selected - Send email to selected subscribers
  */
 export async function sendSelectedEmail(req, res) {
-  try {
-    if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Unauthorized - Admin access required'
-      });
-    }
+  requireAdmin(req);
 
-    const { subscriber_ids, subject, content, template_id } = req.body;
+  const { subscriber_ids, subject, content, template_id } = req.body;
 
-    if (!subscriber_ids || !Array.isArray(subscriber_ids) || subscriber_ids.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'At least one subscriber ID is required'
-      });
-    }
+  const subscribers = [];
+  for (const subscriberId of subscriber_ids) {
+    const subscriber = await db.get(`subscribers:${subscriberId}`);
+    if (subscriber) subscribers.push(subscriber);
+  }
 
-    if (!subject || !content) {
-      return res.status(400).json({
-        success: false,
-        error: 'Subject and content are required'
-      });
-    }
+  if (subscribers.length === 0) {
+    throw new ValidationError('No valid subscribers found');
+  }
 
-    // Get selected subscribers
-    const subscribers = [];
-    for (const subscriberId of subscriber_ids) {
-      const subscriber = await db.get(`subscriber:${subscriberId}`);
-      if (subscriber) {
-        subscribers.push(subscriber);
+  const campaign = await emailModel.createCampaign({
+    subject, content, template_id,
+    created_by: req.user.id,
+    status: 'sending',
+  });
+
+  let sentCount = 0;
+  let failedCount = 0;
+
+  for (const subscriber of subscribers) {
+    try {
+      let finalContent = content;
+      if (template_id) {
+        const template = await emailModel.getTemplateById(template_id);
+        if (template) {
+          finalContent = emailModel.replaceTemplateVariables(template.content, {
+            subscriber_name: subscriber.name || subscriber.email,
+            unsubscribe_link: `https://onderdenetim.com/unsubscribe?id=${subscriber.id}`,
+            company_name: 'Onder Denetim',
+          });
+        }
       }
-    }
 
-    if (subscribers.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No valid subscribers found'
+      const emailResult = await mailService.sendEmail({
+        to: subscriber.email, subject, html: finalContent, text: content,
       });
-    }
 
-    // Create campaign
-    const campaign = await emailModel.createCampaign({
-      subject,
-      content,
-      template_id,
-      created_by: req.user.id,
-      status: 'sending'
-    });
-
-    // Send emails
-    let sentCount = 0;
-    let failedCount = 0;
-
-    for (const subscriber of subscribers) {
-      try {
-        let finalContent = content;
-        if (template_id) {
-          const template = await emailModel.getTemplateById(template_id);
-          if (template) {
-            finalContent = emailModel.replaceTemplateVariables(template.content, {
-              subscriber_name: subscriber.name || subscriber.email,
-              unsubscribe_link: `https://onderdenetim.com/unsubscribe?id=${subscriber.id}`,
-              company_name: 'Önder Denetim'
-            });
-          }
-        }
-
-        const emailResult = await mailService.sendEmail({
-          to: subscriber.email,
-          subject: subject,
-          html: finalContent,
-          text: content
+      if (emailResult.success) {
+        sentCount++;
+        await emailModel.createRecipient({
+          campaign_id: campaign.campaign_id,
+          subscriber_id: subscriber.id,
+          email: subscriber.email,
+          status: 'sent',
         });
-
-        if (emailResult.success) {
-          sentCount++;
-          await emailModel.createRecipient({
-            campaign_id: campaign.campaign_id,
-            subscriber_id: subscriber.id,
-            email: subscriber.email,
-            status: 'sent'
-          });
-        } else {
-          failedCount++;
-          await emailModel.createRecipient({
-            campaign_id: campaign.campaign_id,
-            subscriber_id: subscriber.id,
-            email: subscriber.email,
-            status: 'failed',
-            error_message: emailResult.error
-          });
-        }
-      } catch (error) {
+      } else {
         failedCount++;
         await emailModel.createRecipient({
           campaign_id: campaign.campaign_id,
           subscriber_id: subscriber.id,
           email: subscriber.email,
           status: 'failed',
-          error_message: error.message
+          error_message: emailResult.error,
         });
       }
+    } catch (error) {
+      failedCount++;
+      await emailModel.createRecipient({
+        campaign_id: campaign.campaign_id,
+        subscriber_id: subscriber.id,
+        email: subscriber.email,
+        status: 'failed',
+        error_message: error.message,
+      });
     }
-
-    await emailModel.updateCampaign(campaign.id, {
-      sent_count: sentCount,
-      failed_count: failedCount,
-      status: failedCount === 0 ? 'sent' : 'partial',
-      sent_at: new Date()
-    });
-
-    logger.info(`📧 Selected email sent: ${sentCount} successful, ${failedCount} failed`);
-
-    res.json({
-      success: true,
-      message: 'Selected email campaign completed',
-      campaign_id: campaign.campaign_id,
-      sent_count: sentCount,
-      failed_count: failedCount
-    });
-  } catch (error) {
-    logger.error('Error in sendSelectedEmail:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to send selected email',
-      message: error.message
-    });
   }
+
+  await emailModel.updateCampaign(campaign.id, {
+    sent_count: sentCount,
+    failed_count: failedCount,
+    status: failedCount === 0 ? 'sent' : 'partial',
+    sent_at: new Date(),
+  });
+
+  logger.info(`Selected email sent: ${sentCount} successful, ${failedCount} failed`);
+
+  return sendSuccess(res, {
+    message: 'Selected email campaign completed',
+    campaign_id: campaign.campaign_id,
+    sent_count: sentCount,
+    failed_count: failedCount,
+  });
 }
 
 /**
- * ENDPOINT 3: POST /api/v1/email/send-single
- * Send email to single subscriber
+ * POST /email/send-single - Send email to single address
  */
 export async function sendSingleEmail(req, res) {
-  try {
-    if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Unauthorized - Admin access required'
+  requireAdmin(req);
+
+  const { to_email, subject, content, template_id } = req.body;
+
+  const campaign = await emailModel.createCampaign({
+    subject, content, template_id,
+    created_by: req.user.id,
+    status: 'sending',
+  });
+
+  let finalContent = content;
+  if (template_id) {
+    const template = await emailModel.getTemplateById(template_id);
+    if (template) {
+      finalContent = emailModel.replaceTemplateVariables(template.content, {
+        subscriber_name: to_email,
+        company_name: 'Onder Denetim',
       });
     }
-
-    const { to_email, subject, content, template_id } = req.body;
-
-    if (!to_email || !subject || !content) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email, subject, and content are required'
-      });
-    }
-
-    // Create campaign for single email
-    const campaign = await emailModel.createCampaign({
-      subject,
-      content,
-      template_id,
-      created_by: req.user.id,
-      status: 'sending'
-    });
-
-    // Send email
-    let finalContent = content;
-    if (template_id) {
-      const template = await emailModel.getTemplateById(template_id);
-      if (template) {
-        finalContent = emailModel.replaceTemplateVariables(template.content, {
-          subscriber_name: to_email,
-          company_name: 'Önder Denetim'
-        });
-      }
-    }
-
-    const emailResult = await mailService.sendEmail({
-      to: to_email,
-      subject: subject,
-      html: finalContent,
-      text: content
-    });
-
-    // Update campaign
-    await emailModel.updateCampaign(campaign.id, {
-      sent_count: emailResult.success ? 1 : 0,
-      failed_count: emailResult.success ? 0 : 1,
-      status: emailResult.success ? 'sent' : 'failed',
-      sent_at: new Date()
-    });
-
-    if (!emailResult.success) {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to send email',
-        message: emailResult.error
-      });
-    }
-
-    logger.info(`📧 Single email sent to ${to_email}`);
-
-    res.json({
-      success: true,
-      message: 'Email sent successfully',
-      to_email: to_email,
-      campaign_id: campaign.campaign_id
-    });
-  } catch (error) {
-    logger.error('Error in sendSingleEmail:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to send email',
-      message: error.message
-    });
   }
+
+  const emailResult = await mailService.sendEmail({
+    to: to_email, subject, html: finalContent, text: content,
+  });
+
+  await emailModel.updateCampaign(campaign.id, {
+    sent_count: emailResult.success ? 1 : 0,
+    failed_count: emailResult.success ? 0 : 1,
+    status: emailResult.success ? 'sent' : 'failed',
+    sent_at: new Date(),
+  });
+
+  if (!emailResult.success) {
+    throw new ValidationError('Failed to send email: ' + (emailResult.error || 'Unknown error'));
+  }
+
+  logger.info(`Single email sent to ${to_email}`);
+
+  return sendSuccess(res, {
+    message: 'Email sent successfully',
+    to_email,
+    campaign_id: campaign.campaign_id,
+  });
 }
 
 /**
- * ENDPOINT 4: GET /api/v1/email/templates
- * Get all email templates
+ * POST /email/test - Send test email
+ */
+export async function sendTestEmail(req, res) {
+  requireAdmin(req);
+
+  const { email } = req.body;
+
+  const result = await mailService.sendEmail({
+    to: email,
+    subject: 'Test Email - Onder Denetim',
+    html: `
+      <h1>Test Email</h1>
+      <p>Email sisteminin duzgun calistigini dogrulamaktadir.</p>
+      <p>Eger bu emaili aldaysaniz, email hizmetiniz aktif ve calisiyor demektir.</p>
+    `,
+    text: 'Test email successfully delivered!',
+  });
+
+  return sendSuccess(res, { message: 'Test email sent successfully', result });
+}
+
+/**
+ * GET /email/templates - Get all email templates
  */
 export async function getTemplates(req, res) {
-  try {
-    const templates = await emailModel.getAllTemplates();
-
-    res.json({
-      success: true,
-      templates: templates,
-      count: templates.length
-    });
-  } catch (error) {
-    logger.error('Error in getTemplates:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch templates',
-      message: error.message
-    });
-  }
+  const templates = await emailModel.getAllTemplates();
+  return sendSuccess(res, { templates, count: templates.length });
 }
 
 /**
- * ENDPOINT 5: POST /api/v1/email/templates
- * Create new email template
+ * POST /email/templates - Create new email template
  */
 export async function createTemplate(req, res) {
-  try {
-    if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Unauthorized - Admin access required'
-      });
-    }
+  requireAdmin(req);
 
-    const { name, subject, content, category, variables } = req.body;
+  const { name, subject, content, category, variables } = req.body;
 
-    if (!name || !subject || !content) {
-      return res.status(400).json({
-        success: false,
-        error: 'Name, subject, and content are required'
-      });
-    }
+  const template = await emailModel.createTemplate({
+    name, subject, content,
+    category: category || 'custom',
+    variables: variables || [],
+    created_by: req.user.id,
+  });
 
-    const template = await emailModel.createTemplate({
-      name,
-      subject,
-      content,
-      category: category || 'custom',
-      variables: variables || [],
-      created_by: req.user.id
-    });
+  logger.info(`Email template created: ${template.template_id}`);
 
-    logger.info(`📝 Email template created: ${template.template_id}`);
-
-    res.status(201).json({
-      success: true,
-      message: 'Template created successfully',
-      template: template
-    });
-  } catch (error) {
-    logger.error('Error in createTemplate:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create template',
-      message: error.message
-    });
-  }
+  return sendCreated(res, {
+    message: 'Template created successfully',
+    template,
+  });
 }
 
 /**
- * ENDPOINT 6: PUT /api/v1/email/templates/:id
- * Update email template
+ * PUT /email/templates/:id - Update email template
  */
 export async function updateTemplate(req, res) {
-  try {
-    if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Unauthorized - Admin access required'
-      });
-    }
+  requireAdmin(req);
 
-    const { id } = req.params;
-    const updates = req.body;
+  const { id } = req.params;
+  const template = await emailModel.updateTemplate(id, req.body);
 
-    const template = await emailModel.updateTemplate(id, updates);
+  logger.info(`Email template updated: ${id}`);
 
-    logger.info(`✏️ Email template updated: ${id}`);
-
-    res.json({
-      success: true,
-      message: 'Template updated successfully',
-      template: template
-    });
-  } catch (error) {
-    logger.error('Error in updateTemplate:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update template',
-      message: error.message
-    });
-  }
+  return sendSuccess(res, {
+    message: 'Template updated successfully',
+    template,
+  });
 }
 
 /**
- * ENDPOINT 7: DELETE /api/v1/email/templates/:id
- * Delete email template
+ * DELETE /email/templates/:id - Delete email template
  */
 export async function deleteTemplate(req, res) {
-  try {
-    if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Unauthorized - Admin access required'
-      });
-    }
+  requireAdmin(req);
 
-    const { id } = req.params;
+  const { id } = req.params;
+  await emailModel.deleteTemplate(id);
 
-    await emailModel.deleteTemplate(id);
+  logger.info(`Email template deleted: ${id}`);
 
-    logger.info(`🗑️ Email template deleted: ${id}`);
-
-    res.json({
-      success: true,
-      message: 'Template deleted successfully'
-    });
-  } catch (error) {
-    logger.error('Error in deleteTemplate:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete template',
-      message: error.message
-    });
-  }
+  return sendSuccess(res, { message: 'Template deleted successfully' });
 }
 
 /**
- * ENDPOINT 8: GET /api/v1/email/history
- * Get email campaign history
+ * GET /email/history - Get email campaign history
  */
 export async function getEmailHistory(req, res) {
-  try {
-    const { limit = 50, offset = 0, status } = req.query;
+  const { limit = 50, offset = 0, status } = req.query;
 
-    const result = await emailModel.getAllCampaigns({
-      limit: parseInt(limit),
-      offset: parseInt(offset),
-      status
-    });
+  const result = await emailModel.getAllCampaigns({
+    limit: parseInt(limit),
+    offset: parseInt(offset),
+    status,
+  });
 
-    // Map campaigns to history format expected by frontend
-    const history = result.campaigns.map(c => ({
-      id: c.id || c.campaign_id,
-      subject: c.subject,
-      recipients_count: (c.sent_count || 0) + (c.failed_count || 0),
-      sent_at: c.sent_at || c.created_at,
-      status: c.status === 'partial' ? 'sent' : c.status
-    }));
+  const history = result.campaigns.map(c => ({
+    id: c.id || c.campaign_id,
+    subject: c.subject,
+    recipients_count: (c.sent_count || 0) + (c.failed_count || 0),
+    sent_at: c.sent_at || c.created_at,
+    status: c.status === 'partial' ? 'sent' : c.status,
+  }));
 
-    res.json({
-      success: true,
-      history: history,
-      campaigns: result.campaigns,
-      total: result.total,
-      limit: result.limit,
-      offset: result.offset
-    });
-  } catch (error) {
-    logger.error('Error in getEmailHistory:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch email history',
-      message: error.message
-    });
-  }
+  return sendSuccess(res, {
+    history,
+    campaigns: result.campaigns,
+    total: result.total,
+    limit: result.limit,
+    offset: result.offset,
+  });
 }
 
 /**
- * ENDPOINT 9: GET /api/v1/email/stats
- * Get email statistics
+ * GET /email/stats - Get email statistics
  */
 export async function getEmailStats(req, res) {
-  try {
-    const stats = await emailModel.getEmailStats();
-
-    res.json({
-      success: true,
-      data: stats
-    });
-  } catch (error) {
-    logger.error('Error in getEmailStats:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch email stats',
-      message: error.message
-    });
-  }
+  const stats = await emailModel.getEmailStats();
+  return sendSuccess(res, stats);
 }
+
+/**
+ * POST /email/subscribers/welcome - Send welcome email
+ */
+export async function sendWelcomeEmail(req, res) {
+  const { email, name } = req.body;
+  await mailService.sendWelcomeEmail(email, name);
+  return sendSuccess(res, { message: 'Welcome email sent', email });
+}
+
+/**
+ * POST /email/blog-notification - Send blog notification
+ */
+export async function sendBlogNotification(req, res) {
+  requireAdmin(req);
+
+  const { blogId, recipientFilter } = req.body;
+  await mailService.sendBlogNotification(blogId, recipientFilter);
+
+  return sendSuccess(res, {
+    message: 'Blog notification sent',
+    blogId,
+    recipients: recipientFilter,
+  });
+}
+
+/**
+ * POST /email/regulation-notification - Send regulation notification
+ */
+export async function sendRegulationNotification(req, res) {
+  requireAdmin(req);
+
+  const { regulationId, recipientFilter } = req.body;
+  await mailService.sendRegulationNotification(regulationId, recipientFilter);
+
+  return sendSuccess(res, {
+    message: 'Regulation notification sent',
+    regulationId,
+    recipients: recipientFilter,
+  });
+}
+
+/**
+ * POST /email/custom-campaign - Send custom email campaign
+ */
+export async function sendCustomCampaign(req, res) {
+  requireAdmin(req);
+
+  const { title, subject, html, recipientFilter, scheduleTime } = req.body;
+
+  const campaign = await mailService.sendCustomCampaign({
+    title, subject, html, recipientFilter, scheduleTime,
+    createdBy: req.user.id,
+  });
+
+  return sendSuccess(res, {
+    message: 'Campaign sent successfully',
+    campaign,
+  });
+}
+
+/**
+ * GET /email/campaign-stats - Get campaign statistics
+ */
+export async function getCampaignStats(req, res) {
+  requireAdmin(req);
+
+  const stats = await mailService.getCampaignStats();
+  return sendSuccess(res, stats);
+}
+
+export default {
+  sendBulkEmail, sendSelectedEmail, sendSingleEmail, sendTestEmail,
+  getTemplates, createTemplate, updateTemplate, deleteTemplate,
+  getEmailHistory, getEmailStats, getCampaignStats,
+  sendWelcomeEmail, sendBlogNotification, sendRegulationNotification, sendCustomCampaign,
+};

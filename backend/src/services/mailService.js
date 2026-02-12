@@ -2,6 +2,7 @@ import { Resend } from 'resend';
 import * as db from '../../db.js';
 import { v4 as uuidv4 } from 'uuid';
 import config from '../config/index.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Mail Service
@@ -13,7 +14,7 @@ let resend = null;
 if (config.email.resendApiKey) {
   resend = new Resend(config.email.resendApiKey);
 } else {
-  console.warn('⚠️  Resend API key not configured. Email features will be simulated.');
+  logger.warn('Resend API key not configured. Email features will be simulated.');
 }
 
 /**
@@ -286,10 +287,7 @@ const sendEmail = async ({ to, subject, html, text, from }) => {
   try {
     if (!resend) {
       // Simulate email sending in development
-      console.log('\n📧 [EMAIL SIMULATION]');
-      console.log('To:', to);
-      console.log('Subject:', subject);
-      console.log('═══════════════════════════════════════\n');
+      logger.info(`[EMAIL SIMULATION] To: ${to} | Subject: ${subject}`);
       return {
         success: true,
         simulated: true,
@@ -312,7 +310,7 @@ const sendEmail = async ({ to, subject, html, text, from }) => {
     };
 
   } catch (error) {
-    console.error('Send email error:', error);
+    logger.error('Send email error:', error);
     throw error;
   }
 };
@@ -339,7 +337,7 @@ export const sendWelcomeEmail = async (subscriberEmail, name, tempPassword) => {
     return result;
 
   } catch (error) {
-    console.error('Send welcome email error:', error);
+    logger.error('Send welcome email error:', error);
     throw error;
   }
 };
@@ -420,7 +418,7 @@ export const sendAdminWelcomeEmail = async (adminEmail, adminName, tempPassword)
     return result;
 
   } catch (error) {
-    console.error('Send admin welcome email error:', error);
+    logger.error('Send admin welcome email error:', error);
     throw error;
   }
 };
@@ -487,7 +485,7 @@ export const sendBlogNotification = async (blogId, recipientFilter = 'all') => {
     return results;
 
   } catch (error) {
-    console.error('Send blog notification error:', error);
+    logger.error('Send blog notification error:', error);
     throw error;
   }
 };
@@ -549,7 +547,7 @@ export const sendRegulationNotification = async (regulationId, recipientFilter =
     return results;
 
   } catch (error) {
-    console.error('Send regulation notification error:', error);
+    logger.error('Send regulation notification error:', error);
     throw error;
   }
 };
@@ -571,7 +569,7 @@ export const sendContactAutoResponse = async (contactData) => {
     return result;
 
   } catch (error) {
-    console.error('Send contact auto-response error:', error);
+    logger.error('Send contact auto-response error:', error);
     throw error;
   }
 };
@@ -596,9 +594,34 @@ export const sendContactNotificationToAdmin = async (contactData) => {
     return result;
 
   } catch (error) {
-    console.error('Send admin notification error:', error);
+    logger.error('Send admin notification error:', error);
     throw error;
   }
+};
+
+/**
+ * Send reply to contact message
+ */
+export const sendContactReply = async (contactData, replyData) => {
+  const result = await sendEmail({
+    to: contactData.email,
+    subject: replyData.subject || `Re: ${contactData.subject}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a365d;">Önder Denetim</h2>
+        <p>Sayın ${contactData.name},</p>
+        <div style="padding: 15px; background: #f7f7f7; border-radius: 5px; margin: 15px 0;">
+          ${replyData.message.replace(/\n/g, '<br>')}
+        </div>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #666; font-size: 12px;">Bu mesaj ${contactData.ticket_id} numaralı talebinize yanıt olarak gönderilmiştir.</p>
+      </div>
+    `,
+    text: `Sayın ${contactData.name},\n\n${replyData.message}\n\nTicket: ${contactData.ticket_id}`,
+  });
+
+  logger.info(`Contact reply sent to ${contactData.email} for ticket ${contactData.ticket_id}`);
+  return result;
 };
 
 /**
@@ -661,7 +684,7 @@ export const sendCustomCampaign = async ({
     return results;
 
   } catch (error) {
-    console.error('Send custom campaign error:', error);
+    logger.error('Send custom campaign error:', error);
     throw error;
   }
 };
@@ -700,7 +723,7 @@ export const getCampaignStats = async () => {
     return stats;
 
   } catch (error) {
-    console.error('Get campaign stats error:', error);
+    logger.error('Get campaign stats error:', error);
     throw error;
   }
 };

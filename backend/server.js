@@ -15,7 +15,8 @@ import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import * as db from './db.js';
 import config from './src/config/index.js';
-import { errorHandler, asyncHandler, validators, validateRequest, sanitizeUser, rateLimitHandler } from './middlewares.js';
+import { rateLimitHandler } from './middlewares.js';
+import { notFoundHandler, globalErrorHandler } from './src/middlewares/errorHandler.js';
 
 // Controllers
 import * as blogController from './src/controllers/blogController.js';
@@ -62,6 +63,7 @@ import performanceRoutes from './src/routes/performance.routes.js';
 import uploadRoutes from './src/routes/upload.routes.js';
 import mailRoutes from './src/routes/mail.routes.js';
 import integrationsRoutes from './src/routes/integrations.routes.js';
+import analyticsRoutes from './src/routes/analytics.routes.js';
 import performanceMonitor from './src/services/performanceMonitor.js';
 
 const app = express();
@@ -230,11 +232,18 @@ const authMiddleware = async (req, res, next) => {
     (req.path === '/api/v1/auth/signin' && req.method === 'POST') ||
     (req.path === '/api/v1/auth/signup-admin' && req.method === 'POST') ||
     (req.path === '/api/v1/auth/session' && req.method === 'POST') ||
+    (req.path === '/api/v1/auth/refresh' && req.method === 'POST') ||
+    (req.path === '/api/v1/auth/logout' && req.method === 'POST') ||
+    (req.path === '/api/v1/auth/forgot-password' && req.method === 'POST') ||
+    (req.path === '/api/v1/auth/reset-password' && req.method === 'POST') ||
     // Contact form (POST only)
     (req.path === '/api/v1/contact' && req.method === 'POST') ||
-    // Newsletter subscription
+    // Newsletter subscription (both legacy and current paths)
     (req.path === '/api/v1/subscribe' && req.method === 'POST') ||
     (req.path === '/api/v1/unsubscribe' && req.method === 'POST') ||
+    (req.path === '/api/v1/subscribers/subscribe' && req.method === 'POST') ||
+    (req.path === '/api/v1/subscribers/unsubscribe' && req.method === 'POST') ||
+    (req.path.startsWith('/api/v1/subscribers/verify/') && req.method === 'GET') ||
     // Uploaded files
     (req.path.startsWith('/uploads/')) ||
     // CSRF token endpoint
@@ -367,6 +376,7 @@ app.use('/api/v1/subscribers', subscribersRoutes); // Subscriber management (pro
 app.use('/api/v1/logs', activityLogsRoutes); // Activity logs (protected)
 app.use('/api/v1/settings', settingsRoutes); // Settings & analytics (protected)
 app.use('/api/v1/integrations', integrationsRoutes); // Social media integrations (protected)
+app.use('/api/v1/analytics', analyticsRoutes); // Analytics dashboard (protected)
 app.use('/api/v1', systemRoutes); // health, monitoring, cache, backup
 
 // ============================================
@@ -409,11 +419,14 @@ app.get('/api/v1/api-version', (req, res) => {
 // ERROR HANDLING
 // ============================================
 
+// 404 handler - catches unmatched routes
+app.use(notFoundHandler);
+
 // Error logger middleware (logs all errors)
 app.use(errorLogger);
 
-// Final error handler
-app.use(errorHandler);
+// Global error handler - catches all errors with standardized responses
+app.use(globalErrorHandler);
 
 // ============================================================================
 // START SERVER
