@@ -19,6 +19,7 @@ router.get('/verify/:token', asyncHandler(subscribersController.verifyEmail));
 // Protected routes (Admin only - auth middleware in server.js)
 router.get('/stats', asyncHandler(subscribersController.getSubscriberStats));
 router.get('/tags', asyncHandler(subscribersController.getAllTags));
+router.get('/export', asyncHandler(subscribersController.exportSubscribersCSV));
 router.get('/', asyncHandler(subscribersController.getAllSubscribers));
 router.get('/:id', asyncHandler(subscribersController.getSubscriberById));
 router.put('/:id', asyncHandler(subscribersController.updateSubscriber));

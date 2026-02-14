@@ -328,3 +328,181 @@ export const getBlogStats = async (req, res) => {
 
   return sendSuccess(res, stats);
 };
+
+/**
+ * Get popular blog posts
+ * @route GET /api/v1/blog/popular
+ */
+export const getPopularPosts = async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 5, 20);
+  const posts = await db.getByPrefix('blogPosts:');
+
+  const popular = posts
+    .filter(p => p.status === 'published')
+    .sort((a, b) => (b.views || 0) - (a.views || 0))
+    .slice(0, limit)
+    .map(p => ({
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      excerpt: p.excerpt,
+      category: p.category,
+      featured_image: p.featured_image,
+      reading_time: p.reading_time,
+      views: p.views || 0,
+      publish_date: p.publish_date,
+    }));
+
+  return sendSuccess(res, { posts: popular });
+};
+
+/**
+ * Get related blog posts
+ * @route GET /api/v1/blog/:slug/related
+ */
+export const getRelatedPosts = async (req, res) => {
+  const post = await db.get(`blogSlugs:${req.params.slug}`);
+  if (!post) {
+    throw new NotFoundError('Blog yazısı bulunamadı');
+  }
+
+  const allPosts = await db.getByPrefix('blogPosts:');
+  const published = allPosts.filter(p => p.status === 'published' && p.id !== post.id);
+
+  // Score by: same category (+3), each shared tag (+2)
+  const scored = published.map(p => {
+    let score = 0;
+    if (p.category === post.category) score += 3;
+    if (post.tags && p.tags) {
+      const shared = p.tags.filter(t => post.tags.includes(t)).length;
+      score += shared * 2;
+    }
+    return { ...p, _score: score };
+  });
+
+  const related = scored
+    .filter(p => p._score > 0)
+    .sort((a, b) => b._score - a._score || (b.views || 0) - (a.views || 0))
+    .slice(0, 4)
+    .map(({ _score, content, previous_versions, social_media, ...rest }) => rest);
+
+  return sendSuccess(res, { posts: related });
+};
+
+/**
+ * Duplicate a blog post as draft
+ * @route POST /api/v1/blog/:id/duplicate
+ */
+export const duplicateBlogPost = async (req, res) => {
+  const original = await db.get(`blogPosts:${req.params.id}`);
+  if (!original) {
+    throw new NotFoundError('Blog yazısı bulunamadı');
+  }
+
+  const newTitle = `Kopya - ${original.title}`;
+  const newSlug = generateSlug(newTitle) + '-' + Date.now();
+  const id = uuidv4();
+  const timestamp = new Date().toISOString();
+
+  const duplicate = {
+    ...original,
+    id,
+    title: newTitle,
+    slug: newSlug,
+    status: 'draft',
+    publish_date: null,
+    scheduled_date: null,
+    views: 0,
+    author_id: req.user.id,
+    author_name: req.user.name,
+    created_at: timestamp,
+    updated_at: timestamp,
+    version: 1,
+    previous_versions: [],
+    social_media: {
+      linkedin: { posted: false, post_id: null, posted_at: null, custom_message: '' },
+      instagram: { posted: false, post_id: null, posted_at: null, custom_message: '' },
+      twitter: { posted: false, post_id: null, posted_at: null, custom_message: '' }
+    },
+  };
+
+  await db.set(`blogPosts:${id}`, duplicate);
+  await db.set(`blogSlugs:${newSlug}`, duplicate);
+
+  logger.info(`Blog post duplicated: ${original.title} -> ${newTitle} [${id}]`);
+
+  return sendCreated(res, { post: duplicate, message: 'Blog yazısı kopyalandı' });
+};
+
+/**
+ * Check slug availability
+ * @route GET /api/v1/blog/check-slug/:slug
+ */
+export const checkSlugAvailability = async (req, res) => {
+  const slug = req.params.slug;
+  const existing = await db.get(`blogSlugs:${slug}`);
+
+  if (!existing) {
+    return sendSuccess(res, { available: true, slug });
+  }
+
+  // Generate suggestion
+  let suggestion = slug;
+  let counter = 2;
+  while (await db.get(`blogSlugs:${suggestion}-${counter}`)) {
+    counter++;
+  }
+
+  return sendSuccess(res, {
+    available: false,
+    slug,
+    suggestion: `${slug}-${counter}`,
+  });
+};
+
+/**
+ * Get scheduled blog posts
+ * @route GET /api/v1/blog/scheduled
+ */
+export const getScheduledPosts = async (req, res) => {
+  const posts = await db.getByPrefix('blogPosts:');
+
+  const scheduled = posts
+    .filter(p => p.status === 'scheduled' && p.scheduled_date)
+    .sort((a, b) => new Date(a.scheduled_date) - new Date(b.scheduled_date))
+    .map(({ content, previous_versions, ...rest }) => rest);
+
+  return sendSuccess(res, { posts: scheduled });
+};
+
+/**
+ * Publish scheduled posts whose time has come
+ * Called by setInterval in server.js every minute
+ */
+export const publishScheduledPosts = async () => {
+  try {
+    const posts = await db.getByPrefix('blogPosts:');
+    const now = new Date();
+
+    const due = posts.filter(p =>
+      p.status === 'scheduled' &&
+      p.scheduled_date &&
+      new Date(p.scheduled_date) <= now
+    );
+
+    for (const post of due) {
+      post.status = 'published';
+      post.publish_date = now.toISOString();
+      post.updated_at = now.toISOString();
+      await db.set(`blogPosts:${post.id}`, post);
+      await db.set(`blogSlugs:${post.slug}`, post);
+      logger.info(`Scheduled post auto-published: ${post.title} [${post.id}]`);
+    }
+
+    if (due.length > 0) {
+      logger.info(`Published ${due.length} scheduled post(s)`);
+    }
+  } catch (error) {
+    logger.error('Scheduled publishing error:', error);
+  }
+};

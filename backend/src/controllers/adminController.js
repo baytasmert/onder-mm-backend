@@ -360,7 +360,18 @@ export async function getBackupHistory(req, res) {
 
 // Default settings helpers
 function getDefaultSiteSettings() {
-  return { siteName: 'Önder Denetim', siteDescription: 'Bağımsız Denetim ve Mali Müşavirlik', siteUrl: 'https://onderdenetim.com', contactEmail: 'info@onderdenetim.com', contactPhone: '+90 212 XXX XX XX', address: 'İstanbul, Türkiye', googleAnalyticsId: '', enableAnalytics: true, enableCookieConsent: true, maintenanceMode: false };
+  return {
+    siteName: 'Önder Denetim',
+    siteDescription: 'Bağımsız Denetim ve Mali Müşavirlik',
+    siteUrl: 'https://onderdenetim.com',
+    contactEmail: process.env.CONTACT_EMAIL || 'info@onderdenetim.com',
+    contactPhone: process.env.CONTACT_PHONE || '',
+    address: process.env.CONTACT_ADDRESS || 'İstanbul, Türkiye',
+    googleAnalyticsId: '',
+    enableAnalytics: true,
+    enableCookieConsent: true,
+    maintenanceMode: false,
+  };
 }
 function getDefaultSeoSettings() {
   return { metaTitle: 'Önder Denetim - Bağımsız Denetim', metaDescription: 'TÜRMOB kayıtlı bağımsız denetçi ve mali müşavirlik hizmetleri', metaKeywords: 'denetim, mali müşavirlik, vergi danışmanlık', ogImage: '/og-image.jpg', twitterHandle: '@onderdenetim', enableSitemap: true, enableRobots: true, canonicalUrl: 'https://onderdenetim.com' };

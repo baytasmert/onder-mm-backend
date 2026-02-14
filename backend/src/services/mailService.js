@@ -198,7 +198,7 @@ const templates = {
               </ul>
               <p>Genellikle 1-2 iş günü içinde yanıt veriyoruz.</p>
               <p>Acil durumlar için bizi arayabilirsiniz:<br>
-              <strong>Tel:</strong> +90 XXX XXX XX XX<br>
+              <strong>Tel:</strong> ${process.env.CONTACT_PHONE || ''}<br>
               <strong>Email:</strong> info@onderdenetim.com</p>
             </div>
             <div class="footer">

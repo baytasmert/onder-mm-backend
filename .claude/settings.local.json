@@ -39,7 +39,8 @@
       "Bash(__NEW_LINE_9f86ff66edce416c__ echo \"\")",
       "Bash(__NEW_LINE_1a7c31ebaeba6242__ echo \"\")",
       "Bash(__NEW_LINE_906025fc3d5b0989__ echo \"\")",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(wc -l:*)"
     ],
     "deny": [],
     "ask": []

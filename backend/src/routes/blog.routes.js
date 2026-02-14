@@ -13,11 +13,14 @@ const router = express.Router();
 // Public routes (specific before parameterized!)
 router.get('/categories', asyncHandler(blogController.getBlogCategories));
 router.get('/stats', asyncHandler(blogController.getBlogStats));
+router.get('/popular', asyncHandler(blogController.getPopularPosts));
+router.get('/check-slug/:slug', asyncHandler(blogController.checkSlugAvailability));
 router.get('/', validateQuery(blogQuerySchema), asyncHandler(blogController.getAllBlogPosts));
 router.get('/:slug', asyncHandler(blogController.getBlogPostBySlug));
 
 // Protected routes (admin only - auth middleware in server.js)
 router.post('/', validateBody(createBlogSchema), asyncHandler(blogController.createBlogPost));
+router.post('/:id/duplicate', asyncHandler(blogController.duplicateBlogPost));
 router.put('/:id', validateBody(updateBlogSchema), asyncHandler(blogController.updateBlogPost));
 router.delete('/:id', asyncHandler(blogController.deleteBlogPost));
 

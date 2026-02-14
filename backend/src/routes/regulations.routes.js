@@ -21,6 +21,7 @@ router.get('/:slug', asyncHandler(regulationsController.getRegulationBySlug));
 
 // Protected routes (Admin, Editor)
 router.post('/', validateBody(createRegulationSchema), asyncHandler(regulationsController.createRegulation));
+router.post('/:id/duplicate', asyncHandler(regulationsController.duplicateRegulation));
 router.put('/:id', validateBody(updateRegulationSchema), asyncHandler(regulationsController.updateRegulation));
 router.delete('/:id', asyncHandler(regulationsController.deleteRegulation));
 

@@ -345,6 +345,39 @@ export const bulkUpdateStatus = async (req, res) => {
 };
 
 /**
+ * Export subscribers as CSV
+ * @route GET /api/v1/subscribers/export
+ */
+export const exportSubscribersCSV = async (req, res) => {
+  const subscribers = await db.getByPrefix('subscribers:');
+
+  const header = 'Email,Ad,Durum,Kaynak,Etiketler,Abone Tarihi';
+  const escapeCSV = (val) => {
+    const str = String(val || '');
+    return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+
+  const rows = subscribers.map(s =>
+    [
+      escapeCSV(s.email),
+      escapeCSV(s.name),
+      escapeCSV(s.status),
+      escapeCSV(s.source),
+      escapeCSV((s.tags || []).join('; ')),
+      escapeCSV(s.subscribed_at),
+    ].join(',')
+  );
+
+  const csv = [header, ...rows].join('\n');
+  const date = new Date().toISOString().split('T')[0];
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename=aboneler-${date}.csv`);
+  // BOM for Excel Turkish character support
+  return res.send('\uFEFF' + csv);
+};
+
+/**
  * Helper: Log activity
  */
 async function logActivity(userId, action, entity, entityId, details = {}) {

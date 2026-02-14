@@ -139,6 +139,12 @@ router.post('/refresh', validateBody(refreshTokenSchema), asyncHandler(async (re
     return sendError(res, 'User not found', 401, 'USER_NOT_FOUND');
   }
 
+  // Reject tokens issued before password change
+  if (admin.passwordChangedAt && storedToken.created_at < admin.passwordChangedAt) {
+    await db.del(`refreshToken:${refreshToken}`);
+    return sendError(res, 'Token invalidated by password change', 401, 'TOKEN_REVOKED');
+  }
+
   // Generate new token pair
   const newTokens = generateTokenPair(admin);
 
@@ -271,15 +277,10 @@ router.post('/reset-password', validateBody(resetPasswordSchema), asyncHandler(a
   resetData.used = true;
   await db.set(`passwordReset:${token}`, resetData);
 
-  // Invalidate all refresh tokens for this user
-  const allRefreshTokens = await db.getByPrefix('refreshToken:');
-  for (const rt of allRefreshTokens) {
-    if (rt.userId === admin.id) {
-      // Find the key and delete it
-      const keys = await db.getByPrefix('refreshToken:');
-      // Simple approach - we'll clean up on next refresh attempt
-    }
-  }
+  // Invalidate refresh tokens by bumping passwordChangedAt
+  // Refresh endpoint will reject tokens issued before this timestamp
+  admin.passwordChangedAt = new Date().toISOString();
+  await db.set(`admins:${admin.id}`, admin);
 
   logger.info(`Password reset for: ${admin.email}`);
 
@@ -299,15 +300,15 @@ router.post('/signup-admin', asyncHandler(async (req, res) => {
     return sendError(res, 'Email and password are required', 400, 'VALIDATION_ERROR');
   }
 
-  const existingAdmin = await db.get(`admin:${email}`);
+  // Search by email in all admins (consistent with signin)
+  const allAdmins = await db.getByPrefix('admins:');
+  const existingAdmin = allAdmins.find(a => a.email === email);
 
   if (existingAdmin) {
-    const passwordHash = await bcrypt.hash(password, 10);
-    existingAdmin.password_hash = passwordHash;
+    existingAdmin.password = await bcrypt.hash(password, 10);
     existingAdmin.updated_at = new Date().toISOString();
 
-    await db.set(`admin:${existingAdmin.id}`, existingAdmin);
-    await db.set(`admin:${email}`, existingAdmin);
+    await db.set(`admins:${existingAdmin.id}`, existingAdmin);
 
     return sendSuccess(res, {
       message: 'Admin password updated',
@@ -315,19 +316,17 @@ router.post('/signup-admin', asyncHandler(async (req, res) => {
     });
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
   const admin = {
     id: uuidv4(),
     email,
-    password_hash: passwordHash,
+    password: await bcrypt.hash(password, 10),
     name: name || 'Admin',
     role: 'admin',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
 
-  await db.set(`admin:${admin.id}`, admin);
-  await db.set(`admin:${email}`, admin);
+  await db.set(`admins:${admin.id}`, admin);
 
   return sendSuccess(res, { user: sanitizeUser(admin) }, 201);
 }));

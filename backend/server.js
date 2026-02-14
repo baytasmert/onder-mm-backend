@@ -214,6 +214,94 @@ app.use(optionalCsrfProtection);
 app.use('/uploads', express.static(config.upload.uploadDir));
 
 // ============================================
+// SITEMAP.XML & RSS FEED (Public, before auth)
+// ============================================
+
+const SITE_URL = config.frontend?.url || 'https://onderdenetim.com';
+
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const blogs = (await db.getByPrefix('blogPosts:')).filter(p => p.status === 'published');
+    const regulations = (await db.getByPrefix('regulations:')).filter(r => r.status === 'published');
+
+    const staticPages = [
+      { loc: '/', priority: '1.0', changefreq: 'weekly' },
+      { loc: '/hakkimizda', priority: '0.8', changefreq: 'monthly' },
+      { loc: '/hizmetler', priority: '0.8', changefreq: 'monthly' },
+      { loc: '/iletisim', priority: '0.7', changefreq: 'monthly' },
+      { loc: '/blog', priority: '0.9', changefreq: 'daily' },
+      { loc: '/mevzuat', priority: '0.9', changefreq: 'daily' },
+      { loc: '/hesaplamalar', priority: '0.7', changefreq: 'monthly' },
+    ];
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+
+    for (const page of staticPages) {
+      xml += `  <url>\n    <loc>${SITE_URL}${page.loc}</loc>\n    <changefreq>${page.changefreq}</changefreq>\n    <priority>${page.priority}</priority>\n  </url>\n`;
+    }
+
+    for (const post of blogs) {
+      xml += `  <url>\n    <loc>${SITE_URL}/blog/${post.slug}</loc>\n    <lastmod>${post.updated_at || post.created_at}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.6</priority>\n  </url>\n`;
+    }
+
+    for (const reg of regulations) {
+      xml += `  <url>\n    <loc>${SITE_URL}/mevzuat/${reg.slug}</loc>\n    <lastmod>${reg.updated_at || reg.created_at}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.6</priority>\n  </url>\n`;
+    }
+
+    xml += '</urlset>';
+
+    res.set('Content-Type', 'application/xml');
+    res.send(xml);
+  } catch (error) {
+    logger.error('Sitemap generation error:', error);
+    res.status(500).send('Sitemap generation failed');
+  }
+});
+
+app.get('/feed/rss', async (req, res) => {
+  try {
+    const blogs = (await db.getByPrefix('blogPosts:'))
+      .filter(p => p.status === 'published')
+      .sort((a, b) => new Date(b.publish_date || b.created_at) - new Date(a.publish_date || a.created_at))
+      .slice(0, 20);
+
+    const escapeXml = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const lastBuildDate = blogs[0] ? new Date(blogs[0].publish_date || blogs[0].created_at).toUTCString() : new Date().toUTCString();
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n';
+    xml += '<channel>\n';
+    xml += `  <title>Önder Denetim - Blog</title>\n`;
+    xml += `  <link>${SITE_URL}/blog</link>\n`;
+    xml += `  <description>Önder Denetim Mali Müşavirlik - Güncel mevzuat ve mali konular</description>\n`;
+    xml += `  <language>tr</language>\n`;
+    xml += `  <lastBuildDate>${lastBuildDate}</lastBuildDate>\n`;
+    xml += `  <atom:link href="${SITE_URL}/feed/rss" rel="self" type="application/rss+xml"/>\n`;
+
+    for (const post of blogs) {
+      const pubDate = new Date(post.publish_date || post.created_at).toUTCString();
+      xml += '  <item>\n';
+      xml += `    <title>${escapeXml(post.title)}</title>\n`;
+      xml += `    <link>${SITE_URL}/blog/${post.slug}</link>\n`;
+      xml += `    <guid isPermaLink="true">${SITE_URL}/blog/${post.slug}</guid>\n`;
+      xml += `    <description>${escapeXml(post.excerpt)}</description>\n`;
+      xml += `    <category>${escapeXml(post.category)}</category>\n`;
+      xml += `    <pubDate>${pubDate}</pubDate>\n`;
+      xml += '  </item>\n';
+    }
+
+    xml += '</channel>\n</rss>';
+
+    res.set('Content-Type', 'application/rss+xml; charset=utf-8');
+    res.send(xml);
+  } catch (error) {
+    logger.error('RSS feed generation error:', error);
+    res.status(500).send('RSS generation failed');
+  }
+});
+
+// ============================================
 // AUTH MIDDLEWARE
 // ============================================
 

@@ -245,3 +245,38 @@ export async function deleteRegulation(req, res) {
 
   return sendSuccess(res, { message: 'Regulation deleted successfully' });
 }
+
+/**
+ * Duplicate a regulation as draft
+ * @route POST /api/v1/regulations/:id/duplicate
+ */
+export async function duplicateRegulation(req, res) {
+  const original = await db.get(`regulations:${req.params.id}`);
+  if (!original) {
+    throw new NotFoundError('Mevzuat bulunamadı');
+  }
+
+  const newTitle = `Kopya - ${original.title}`;
+  const newSlug = generateSlug(newTitle) + '-' + Date.now();
+  const id = uuidv4();
+  const timestamp = new Date().toISOString();
+
+  const duplicate = {
+    ...original,
+    id,
+    title: newTitle,
+    slug: newSlug,
+    status: 'draft',
+    views: 0,
+    author_id: req.user.id,
+    created_at: timestamp,
+    updated_at: timestamp,
+  };
+
+  await db.set(`regulations:${id}`, duplicate);
+  await cacheService.del('regulations:all');
+
+  logger.info(`Regulation duplicated: ${original.title} -> ${newTitle} [${id}]`);
+
+  return sendCreated(res, { regulation: duplicate, message: 'Mevzuat kopyalandı' });
+}
